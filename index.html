@@ -113,6 +113,21 @@
   .sub-item .t{font-weight:600;font-size:13.5px;margin:0 0 2px;}
   .sub-item .d{font-size:13px;color:var(--ink-soft);margin:0;line-height:1.45;}
 
+  .lesson-p{font-size:14px;line-height:1.55;color:var(--ink-soft);margin:0 0 12px;}
+  .lesson-node{padding:10px 0 12px;}
+  .lesson-node.lvl0{border-top:1px solid var(--line);margin-top:6px;padding-top:16px;}
+  .lesson-node.lvl0:first-child{border-top:none;margin-top:0;}
+  .lesson-node.lvl1{padding-left:14px;border-left:2px solid var(--gold-soft);margin:10px 0;}
+  .lesson-node.lvl2{padding-left:14px;border-left:2px solid var(--line);margin:10px 0 4px;}
+  .lesson-title{font-weight:700;margin:0 0 10px;}
+  .lesson-title.lvl0{font-size:16.5px;}
+  .lesson-title.lvl1{font-size:15px;}
+  .lesson-title.lvl2{font-size:14px;}
+  .lesson-label{font-size:13.5px;font-style:italic;color:var(--ink-soft);margin:8px 0 6px;}
+  .lesson-list,.lesson-cycle{margin:0 0 10px;padding-left:20px;}
+  .lesson-list li,.lesson-cycle li{font-size:13.5px;color:var(--ink-soft);line-height:1.5;margin-bottom:5px;}
+  .lesson-cycle{color:var(--ink);}
+
   .quiz-intro{
     background:var(--paper);color:var(--ink);border-radius:2px;padding:26px 26px 22px;
     box-shadow:0 10px 24px rgba(0,0,0,.28);border-left:4px solid var(--red);
@@ -207,7 +222,8 @@ const MATIERES = [
   { id:'nsi', label:'NSI', active:true, chapitres:[] },
   { id:'maths', label:'Mathématiques', active:true, chapitres:[] },
   { id:'histoire-geo', label:'Histoire-Géo', active:true, chapitres:[
-    { id:'def1', label:'Définitions 1', active:true },
+    { id:'def1', label:'Définitions 1', active:true, type:'definitions' },
+    { id:'ch1', label:'Chapitre 1 : La crise de 1929', active:true, type:'lesson' },
     { id:'def2', label:'Chapitre 2', active:false },
     { id:'def3', label:'Chapitre 3', active:false },
   ]},
@@ -297,6 +313,64 @@ const GROUPS = [
   { id:'organisation', title:"Organisation d'une société", ids:['economie','politique','societe'] },
   { id:'eco', title:'Bourse et crises économiques', ids:['bourse','bulle','crise','recession','capitalisme'] },
 ];
+
+/* ---------- Chapitre 1 : La crise de 1929 (Histoire-Géo) ---------- */
+const CH1 = {
+  intro:{
+    title:'Introduction',
+    paragraphs:[
+      "1928 : l'économie mondiale est en forme.",
+      "Jeudi 24 octobre 1929 et mardi 29 octobre 1929 : chute de la Bourse de New York (Wall Street) — le « jeudi noir » et le « mardi noir ».",
+      "→ Une crise éclate, puis une récession économique et une crise sociale d'ampleur mondiale.",
+    ]
+  },
+  problematique:{
+    title:'Problématique',
+    list:[
+      "Quelles sont les causes de la crise ?",
+      "Quelle forme prend-elle ?",
+      "Quelles sont les réponses apportées par les gouvernements ?",
+    ]
+  },
+  parts:[
+    { title:"I. L'éclatement et la diffusion de la crise financière", subs:[
+      { title:"A. Les causes de l'éclatement de la crise aux États-Unis", subs:[
+        { title:"1. Le capitalisme, un système fait de cycles de croissance et de récession",
+          cycle:{
+            label:"Le cercle vertueux de la croissance (un cycle qui s'auto-entretient) :",
+            items:[
+              "Innovation technologique → base de la croissance économique",
+              "Amélioration des processus de fabrication → hausse de la productivité",
+              "Hausse du pouvoir d'achat et baisse des prix",
+              "Hausse des ventes de produits",
+              "Hausse des bénéfices des entreprises",
+              "Hausse des profits (rémunère les propriétaires) et hausse des investissements",
+              "Hausse des salaires",
+              "→ retour vers la hausse des ventes : le cycle continue",
+            ]
+          },
+          lists:[
+            { label:"Causes possibles du blocage de la croissance (crise) :", items:[
+              "Les innovations s'essoufflent (recherche et développement inefficace)",
+              "Répartition inefficace des richesses créées : trop peu d'investissement → moins d'innovation",
+            ]},
+            { label:null, items:[
+              "Part des salaires trop faible → baisse de la consommation",
+              "Choc extérieur, hors de la sphère économique (guerre, catastrophe naturelle...)",
+            ]},
+          ]
+        },
+        { title:"2. Les années 20 : la mise en place d'un krach boursier",
+          lists:[
+            { label:null, items:[
+              "a) Une forte croissance industrielle dans les années 1920 : aux États-Unis, la production industrielle augmente d'environ 50 %.",
+            ]},
+          ]
+        },
+      ]},
+    ]},
+  ]
+};
 
 /* ---------- Utilitaires ---------- */
 function shuffle(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
@@ -472,7 +546,9 @@ function renderMainHTML(){
     <button class="tab-btn ${state.tab==='quiz'?'active':''}" data-action="set-tab" data-tab="quiz">Quiz</button>
   </div>
   <div class="view">`;
-  html += state.tab==='cours' ? renderCours() : renderQuizTab();
+  html += state.tab==='cours'
+    ? (c.type==='lesson' ? renderLesson(CH1) : renderCours())
+    : (c.type==='lesson' ? renderNoQuizYet() : renderQuizTab());
   html += `</div>`;
   return html;
 }
@@ -498,6 +574,49 @@ function renderCours(){
     html += `</div>`;
   });
   return html;
+}
+
+function renderLessonList(list){
+  let html='';
+  if(list.label) html += `<p class="lesson-label">${list.label}</p>`;
+  html += `<ul class="lesson-list">`;
+  list.items.forEach(it=>{ html += `<li>${it}</li>`; });
+  html += `</ul>`;
+  return html;
+}
+function renderLessonNode(node, depth){
+  let html = `<div class="lesson-node lvl${depth}"><p class="lesson-title lvl${depth}">${node.title}</p>`;
+  if(node.cycle){
+    html += `<p class="lesson-label">${node.cycle.label}</p><ol class="lesson-cycle">`;
+    node.cycle.items.forEach(it=>{ html += `<li>${it}</li>`; });
+    html += `</ol>`;
+  }
+  if(node.lists){ node.lists.forEach(l=>{ html += renderLessonList(l); }); }
+  if(node.subs){ node.subs.forEach(s=>{ html += renderLessonNode(s, depth+1); }); }
+  html += `</div>`;
+  return html;
+}
+function renderLesson(ch){
+  let html = `<div class="paper-card"><h3>${ch.intro.title}</h3>`;
+  ch.intro.paragraphs.forEach(p=>{ html += `<p class="lesson-p">${p}</p>`; });
+  html += `</div>`;
+
+  html += `<div class="paper-card"><h3>${ch.problematique.title}</h3><ul class="lesson-list">`;
+  ch.problematique.list.forEach(it=>{ html += `<li>${it}</li>`; });
+  html += `</ul></div>`;
+
+  ch.parts.forEach(part=>{
+    html += `<div class="paper-card">`;
+    html += renderLessonNode(part, 0);
+    html += `</div>`;
+  });
+  return html;
+}
+function renderNoQuizYet(){
+  return `<div class="quiz-intro">
+    <h3>Pas encore de quiz</h3>
+    <p>Le quiz de ce chapitre arrive bientôt.</p>
+  </div>`;
 }
 
 function renderQuizTab(){
