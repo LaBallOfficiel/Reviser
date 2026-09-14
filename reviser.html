@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Réviser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,900;1,9..144,600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --board:#1E2B22;
+    --board-2:#24352A;
+    --paper:#F4F0E2;
+    --paper-2:#ECE5D0;
+    --ink:#262420;
+    --ink-soft:#5B5644;
+    --chalk:#F4F0E4;
+    --chalk-soft:rgba(244,240,228,.62);
+    --chalk-faint:rgba(244,240,228,.14);
+    --gold:#D9A83B;
+    --gold-soft:rgba(217,168,59,.22);
+    --red:#B8453B;
+    --red-bg:rgba(184,69,59,.13);
+    --green:#4C8B6B;
+    --green-bg:rgba(76,139,107,.16);
+    --blue:#5C8DB8;
+    --blue-bg:rgba(92,141,184,.16);
+    --line:rgba(38,36,32,.15);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--board);
+    background-image: radial-gradient(circle at 15% 10%, var(--board-2), transparent 55%);
+    color:var(--chalk);
+    font-family:'Public Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    min-height:100vh;
+  }
+  h1,h2,h3,.display{font-family:'Fraunces', Georgia, serif;}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 20px 64px;}
+  header.top{display:flex;align-items:baseline;gap:14px;margin-bottom:20px;flex-wrap:wrap;}
+  .mark{width:30px;height:30px;flex:none;}
+  header.top h1{font-size:28px;font-weight:900;margin:0;color:var(--chalk);letter-spacing:.2px;}
+  header.top p{margin:0;color:var(--chalk-soft);font-size:14.5px;}
+
+  .viewnav{display:flex;gap:8px;margin-bottom:26px;}
+  .vnav-btn{font:inherit;font-size:14px;font-weight:600;background:transparent;
+    border:1px solid var(--chalk-faint);color:var(--chalk-soft);padding:8px 16px;border-radius:20px;cursor:pointer;}
+  .vnav-btn:hover{color:var(--chalk);border-color:var(--chalk-soft);}
+  .vnav-btn.active{background:var(--gold);border-color:var(--gold);color:#262009;}
+
+  .layout{display:grid;grid-template-columns:216px 1fr;gap:26px;align-items:start;}
+  @media (max-width:760px){ .layout{grid-template-columns:1fr;} }
+
+  nav.side{position:sticky;top:20px;}
+  .side-group{margin-bottom:22px;}
+  .side-label{font-size:12.5px;color:var(--chalk-soft);margin:0 0 8px 2px;}
+  .side-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;}
+  @media (max-width:760px){ .side-list{flex-direction:row;flex-wrap:wrap;} .layout{gap:18px;} }
+  .side-btn{
+    display:block;width:100%;text-align:left;background:transparent;border:none;
+    color:var(--chalk-soft);font:inherit;font-size:14.5px;padding:8px 10px;border-radius:3px;
+    cursor:pointer;position:relative;
+  }
+  .side-btn:hover{color:var(--chalk);background:var(--chalk-faint);}
+  .side-btn.active{color:var(--gold);background:var(--gold-soft);font-weight:600;}
+  .side-btn.disabled{color:rgba(244,240,228,.28);cursor:default;}
+  .side-btn.disabled:hover{background:transparent;color:rgba(244,240,228,.28);}
+  .soon{font-size:10.5px;margin-left:6px;opacity:.75;}
+  .side-list.sub{padding-left:8px;border-left:1px solid var(--chalk-faint);margin-left:2px;}
+  .side-note{font-size:12.5px;color:rgba(244,240,228,.4);padding:6px 10px;}
+
+  main{min-width:0;}
+  .empty{
+    border:1px dashed var(--chalk-faint);border-radius:4px;padding:48px 24px;text-align:center;
+  }
+  .empty h2{color:var(--chalk);font-size:21px;margin:0 0 8px;}
+  .empty p{color:var(--chalk-soft);margin:0;font-size:14.5px;}
+
+  .crumb{color:var(--chalk-soft);font-size:13.5px;margin:0 0 4px;}
+  .crumb .cur{color:var(--gold);}
+  .title-row h2{color:var(--chalk);font-size:25px;margin:0 0 16px;font-weight:600;}
+
+  .tabs{display:flex;gap:22px;border-bottom:1px solid var(--chalk-faint);margin-bottom:22px;}
+  .tab-btn{background:none;border:none;color:var(--chalk-soft);font:inherit;font-size:15px;
+    padding:8px 2px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .tab-btn:hover{color:var(--chalk);}
+  .tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);font-weight:600;}
+
+  .view{animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:translateY(0);}}
+  @media (prefers-reduced-motion:reduce){ .view{animation:none;} }
+
+  .paper-card{
+    background:var(--paper);color:var(--ink);border-radius:2px;
+    padding:22px 24px 8px;margin-bottom:18px;
+    box-shadow:0 10px 24px rgba(0,0,0,.28);
+  }
+  .paper-card h3{font-size:16.5px;margin:0 0 4px;font-weight:600;color:var(--ink);}
+  .term-block{padding:14px 0;border-bottom:1px solid var(--line);}
+  .term-block:last-child{border-bottom:none;}
+  .term-block .t{font-weight:700;font-size:14.5px;margin:0 0 4px;}
+  .term-block .d{font-size:14px;line-height:1.5;color:var(--ink-soft);margin:0;}
+  .sub-list{margin:10px 0 4px;padding-left:16px;border-left:2px solid var(--gold-soft);}
+  .sub-item{padding:8px 0;}
+  .sub-item .t{font-weight:600;font-size:13.5px;margin:0 0 2px;}
+  .sub-item .d{font-size:13px;color:var(--ink-soft);margin:0;line-height:1.45;}
+
+  .quiz-intro{
+    background:var(--paper);color:var(--ink);border-radius:2px;padding:26px 26px 22px;
+    box-shadow:0 10px 24px rgba(0,0,0,.28);border-left:4px solid var(--red);
+  }
+  .quiz-intro h3{margin:0 0 8px;font-size:19px;}
+  .quiz-intro p{margin:0 0 18px;font-size:14px;color:var(--ink-soft);line-height:1.5;}
+  .btn{
+    font:inherit;font-weight:600;font-size:14.5px;border:none;border-radius:3px;
+    padding:11px 20px;cursor:pointer;background:var(--gold);color:#262009;
+  }
+  .btn:hover{filter:brightness(1.06);}
+  .btn.ghost{background:transparent;border:1px solid var(--ink-soft);color:var(--ink);}
+  .link-btn{background:none;border:none;color:var(--ink-soft);text-decoration:underline;
+    font:inherit;font-size:13px;cursor:pointer;padding:0;}
+
+  .review-panel{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);}
+  .review-panel h4{margin:0 0 10px;font-size:13.5px;letter-spacing:.2px;color:var(--ink-soft);font-weight:600;}
+  .review-item{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:13.5px;}
+  .review-item .n{font-weight:600;}
+  .review-item .c{color:var(--red);white-space:nowrap;}
+
+  .qcard{
+    background:var(--paper);color:var(--ink);border-radius:2px;padding:26px;
+    box-shadow:0 10px 24px rgba(0,0,0,.28);
+    background-image:repeating-linear-gradient(var(--paper) 0 37px, rgba(38,36,32,.06) 37px 38px);
+    border-left:4px solid var(--red);
+  }
+  .qmeta{font-size:12.5px;color:var(--ink-soft);margin:0 0 14px;}
+  .qprompt{font-size:16.5px;font-weight:600;white-space:pre-line;margin:0 0 20px;line-height:1.45;}
+  .options{display:flex;flex-direction:column;gap:9px;margin-bottom:18px;}
+  .opt{
+    text-align:left;background:var(--paper-2);border:1px solid var(--line);border-radius:3px;
+    padding:12px 14px;font:inherit;font-size:14px;color:var(--ink);cursor:pointer;line-height:1.4;
+  }
+  .opt:hover{border-color:var(--ink-soft);}
+  .opt.correct{background:var(--green-bg);border-color:var(--green);}
+  .opt.wrong{background:var(--red-bg);border-color:var(--red);}
+  .opt.disabled{cursor:default;}
+  .opt.disabled:hover{border-color:var(--line);}
+  .opt.muted{opacity:.55;}
+
+  .result-num{font-size:52px;font-weight:900;margin:0;line-height:1;}
+  .result-sub{color:var(--ink-soft);font-size:14.5px;margin:6px 0 20px;}
+  .mistake-list{margin:0 0 8px;padding:0;list-style:none;}
+  .mistake-list li{padding:10px 0;border-bottom:1px solid var(--line);}
+  .mistake-list .t{font-weight:700;font-size:14px;}
+  .mistake-list .d{font-size:13.5px;color:var(--ink-soft);margin:2px 0 0;}
+  .actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;}
+
+  /* Emploi du temps */
+  .edt-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;align-items:start;}
+  @media (max-width:900px){ .edt-grid{grid-template-columns:1fr;} }
+  .edt-day{background:var(--paper);color:var(--ink);border-radius:2px;box-shadow:0 10px 24px rgba(0,0,0,.28);overflow:hidden;}
+  .edt-day-head{padding:14px 14px 12px;border-bottom:1px solid var(--line);}
+  .edt-day-head .dname{font-weight:700;font-size:14px;text-transform:capitalize;}
+  .edt-day-head .ddate{font-size:12.5px;color:var(--ink-soft);}
+  .edt-flag{display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:11.5px;
+    background:var(--blue-bg);color:var(--blue);padding:3px 8px;border-radius:10px;font-weight:600;}
+  .edt-courses{padding:10px;display:flex;flex-direction:column;gap:8px;}
+  .edt-course{background:var(--paper-2);border-left:4px solid var(--ink-soft);border-radius:2px;padding:9px 11px;}
+  .edt-course .cn{font-weight:700;font-size:12.5px;}
+  .edt-course .cp{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .edt-course .cs{font-size:11.5px;color:var(--ink-soft);}
+  .edt-course.annulee{opacity:.6;}
+  .pill-annulee{display:inline-block;margin-top:5px;font-size:10.5px;font-weight:700;background:var(--red-bg);color:var(--red);padding:2px 7px;border-radius:8px;}
+  .edt-hint{color:var(--chalk-soft);font-size:13.5px;margin:0 0 18px;}
+
+  :focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <svg class="mark" viewBox="0 0 30 30" fill="none">
+      <rect x="1" y="1" width="28" height="28" rx="2" stroke="#D9A83B" stroke-width="1.4"/>
+      <path d="M7 21 L14 8 L21 21" stroke="#D9A83B" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M9.5 16.5 H18.5" stroke="#D9A83B" stroke-width="1.4"/>
+    </svg>
+    <div>
+      <h1>Réviser</h1>
+      <p>Fiches de cours, quiz et emploi du temps.</p>
+    </div>
+  </header>
+
+  <div class="viewnav" id="viewnav"></div>
+  <div id="content"></div>
+</div>
+
+<script>
+/* ---------- Données : matières / chapitres ---------- */
+const MATIERES = [
+  { id:'nsi', label:'NSI', active:true, chapitres:[] },
+  { id:'maths', label:'Mathématiques', active:true, chapitres:[] },
+  { id:'histoire-geo', label:'Histoire-Géo', active:true, chapitres:[
+    { id:'def1', label:'Définitions 1', active:true },
+    { id:'def2', label:'Chapitre 2', active:false },
+    { id:'def3', label:'Chapitre 3', active:false },
+  ]},
+  { id:'philosophie', label:'Philosophie', active:true, chapitres:[] },
+  { id:'espagnol', label:'Espagnol LV2', active:true, chapitres:[] },
+  { id:'eps', label:'EPS', active:true, chapitres:[] },
+  { id:'emc', label:'EMC', active:true, chapitres:[] },
+  { id:'sciences', label:'Enseignement scientifique', active:true, chapitres:[] },
+  { id:'anglais', label:'Anglais LV1', active:true, chapitres:[] },
+];
+
+const MATIERE_COLOR = {
+  'nsi':'#9C8FC9','maths':'#7FB2E5','histoire-geo':'#B9AFA0','philosophie':'#7FB88F',
+  'espagnol':'#D2C46A','eps':'#D98C86','emc':'#B39DDB','sciences':'#8FCB9B','anglais':'#E0A15C'
+};
+
+/* ---------- Emploi du temps (semaine du 14 au 18 septembre) ---------- */
+const SCHEDULE = [
+  { day:'Lundi', date:'14 septembre', travail:false, cours:[
+    { matiereId:'nsi', prof:'M. Thérèse', salle:'Saint-Ex' },
+    { matiereId:'espagnol', prof:'Mme Rodriguez', salle:'E109' },
+    { matiereId:'eps', prof:'Mme Lefèvre', salle:null },
+    { matiereId:'emc', prof:'M. Dumoulin', salle:'E110' },
+  ]},
+  { day:'Mardi', date:'15 septembre', travail:true, cours:[
+    { matiereId:'maths', prof:'M. Kasperski', salle:'E108' },
+    { matiereId:'nsi', prof:'M. Thérèse', salle:'Saint-Ex' },
+    { matiereId:'histoire-geo', prof:'M. Raimbault', salle:'E012' },
+  ]},
+  { day:'Mercredi', date:'16 septembre', travail:false, cours:[
+    { matiereId:'histoire-geo', prof:'M. Raimbault', salle:'E012' },
+    { matiereId:'maths', prof:'M. Kasperski', salle:'E108' },
+  ]},
+  { day:'Jeudi', date:'17 septembre', travail:true, cours:[
+    { matiereId:'philosophie', prof:'M. Dumoulin', salle:'E110' },
+    { matiereId:'nsi', prof:'M. Thérèse', salle:'Saint-Ex' },
+    { matiereId:'espagnol', prof:'Mme Rodriguez', salle:'E109' },
+    { matiereId:'anglais', prof:'Mme Benrezzak', salle:'E104' },
+  ]},
+  { day:'Vendredi', date:'18 septembre', travail:false, cours:[
+    { matiereId:'philosophie', prof:'M. Dumoulin', salle:'E108' },
+    { matiereId:'maths', prof:'M. Kasperski', salle:'E108' },
+    { matiereId:'sciences', prof:'Mme Lourdet', salle:null },
+    { matiereId:'sciences', prof:'Mme Lourdet', salle:null, annulee:true },
+    { matiereId:'anglais', prof:'Mme Benrezzak', salle:'E104' },
+  ]},
+];
+
+/* ---------- Contenu du chapitre "Définitions 1" (Histoire-Géo) ---------- */
+const TERMS = [
+  { id:'histoire', term:'Histoire', group:'societe',
+    def:"Étudie l'évolution des sociétés et des individus à partir des traces laissées par le passé (les sources)." },
+  { id:'geographie', term:'Géographie', group:'societe',
+    def:"Étudie comment les sociétés organisent l'espace où elles vivent, et leurs relations avec d'autres espaces et milieux." },
+  { id:'culture', term:'Culture', group:'societe',
+    def:"Ensemble de connaissances, créations artistiques, manières de vivre et croyances partagées par une société." },
+  { id:'culture-connaissances', term:'Connaissances (culture)', group:'societe', parent:'culture',
+    def:"Savoirs partagés par une société : mathématiques, biologie, histoire..." },
+  { id:'culture-art', term:'Créations artistiques', group:'societe', parent:'culture',
+    def:"Œuvres produites par une société : peinture, musique..." },
+  { id:'culture-manieres', term:'Manières de vivre', group:'societe', parent:'culture',
+    def:"Façons concrètes de vivre au quotidien : nourriture, vêtements, façon de se saluer..." },
+  { id:'culture-croyances', term:'Croyances', group:'societe', parent:'culture',
+    def:"Religion, mais aussi astrologie, superstitions... partagées par une société." },
+  { id:'culture-heritee', term:'Culture héritée', group:'societe', parent:'culture',
+    def:"Transmise par les générations précédentes, mais elle évolue sans cesse grâce aux échanges avec d'autres groupes." },
+  { id:'economie', term:'Économie', group:'organisation',
+    def:"Ensemble des activités par lesquelles une société produit, échange et consomme pour satisfaire ses besoins." },
+  { id:'politique', term:'Politique', group:'organisation',
+    def:"Organisation et exercice du pouvoir dans une société (décisions, lois, institutions), et relations qu'elle entretient avec les autres États." },
+  { id:'societe', term:'Société', group:'organisation',
+    def:"Groupe organisé et hiérarchisé en groupes sociaux selon différents critères : revenus, profession, pouvoir, prestige..." },
+  { id:'bourse', term:'Bourse', group:'eco',
+    def:"Marché financier où s'échangent des actions d'entreprises. La valeur d'une action dépend de l'offre et de la demande, liées aux profits attendus (dividende)." },
+  { id:'bulle', term:'Bulle spéculative', group:'eco',
+    def:"Hausse exagérée des prix d'un bien (actions, immobilier...), sans lien avec l'état réel de l'économie, nourrie par l'espoir de gains rapides." },
+  { id:'crise', term:'Crise économique', group:'eco',
+    def:"Événement ponctuel marqué par la chute des prix et le ralentissement de l'activité, souvent après l'éclatement d'une bulle spéculative." },
+  { id:'recession', term:'Dépression / récession', group:'eco',
+    def:"Moment durant lequel une société perd confiance dans ses fondements : longue baisse des profits et chômage qui reste à un niveau élevé." },
+  { id:'capitalisme', term:'Capitalisme', group:'eco',
+    def:"Système économique reposant sur la propriété privée des moyens de production (usines, commerces...) et sur la recherche du profit." },
+];
+
+const GROUPS = [
+  { id:'societe', title:'Regards sur la société', ids:['histoire','geographie','culture'] },
+  { id:'organisation', title:"Organisation d'une société", ids:['economie','politique','societe'] },
+  { id:'eco', title:'Bourse et crises économiques', ids:['bourse','bulle','crise','recession','capitalisme'] },
+];
+
+/* ---------- Utilitaires ---------- */
+function shuffle(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function pickRandom(arr,n){ return shuffle(arr).slice(0,n); }
+function findTerm(id){ return TERMS.find(t=>t.id===id); }
+function findMatiere(id){ return MATIERES.find(m=>m.id===id); }
+
+function buildBank(){
+  const bank=[];
+  TERMS.forEach(t=>{
+    const distractorsDef = pickRandom(TERMS.filter(x=>x.id!==t.id),3).map(x=>x.def);
+    const optionsDef = shuffle([t.def, ...distractorsDef]).map((text,i)=>({id:'o'+i,text}));
+    bank.push({ qid:t.id+'-def', termId:t.id, prompt:`Quelle est la définition de « ${t.term} » ?`, options:optionsDef, correctText:t.def });
+
+    const distractorsTerm = pickRandom(TERMS.filter(x=>x.id!==t.id),3).map(x=>x.term);
+    const optionsTerm = shuffle([t.term, ...distractorsTerm]).map((text,i)=>({id:'o'+i,text}));
+    bank.push({ qid:t.id+'-term', termId:t.id, prompt:`À quel terme correspond cette définition ?\n« ${t.def} »`, options:optionsTerm, correctText:t.term });
+  });
+  return bank;
+}
+const BANK = buildBank();
+
+/* ---------- État ---------- */
+const state = {
+  view:'revise',
+  matiereId:null,
+  chapitreId:null,
+  tab:'cours',
+  stats:{},
+  quiz:null,
+};
+
+/* ---------- Stockage persistant ---------- */
+async function loadStats(){
+  try{
+    const r = await window.storage.get('histoire_def1_stats', false);
+    state.stats = r && r.value ? JSON.parse(r.value) : {};
+  }catch(e){ state.stats = {}; }
+}
+async function saveStats(){
+  try{ await window.storage.set('histoire_def1_stats', JSON.stringify(state.stats), false); }
+  catch(e){ console.error('Sauvegarde impossible', e); }
+}
+async function resetStats(){
+  if(!confirm('Effacer toute ta progression sur ce chapitre ?')) return;
+  try{ await window.storage.delete('histoire_def1_stats', false); }catch(e){}
+  state.stats = {};
+  render();
+}
+
+function reviewList(){
+  return Object.entries(state.stats)
+    .filter(([,s])=>s.wrong>0)
+    .sort((a,b)=> (b[1].wrong/b[1].seen) - (a[1].wrong/a[1].seen) || b[1].wrong-a[1].wrong)
+    .slice(0,6)
+    .map(([id,s])=>({ term:findTerm(id).term, wrong:s.wrong, seen:s.seen }));
+}
+
+/* ---------- Quiz ---------- */
+function startQuiz(){
+  const shuffled = shuffle(BANK);
+  const chosen=[]; const used=new Set();
+  for(const q of shuffled){
+    if(used.has(q.termId)) continue;
+    used.add(q.termId); chosen.push(q);
+    if(chosen.length>=10) break;
+  }
+  state.quiz = { questions:chosen, index:0, correctCount:0, mistakes:[], selected:null, locked:false, finished:false };
+  render();
+}
+function answerQuestion(optionId){
+  const q = state.quiz;
+  if(q.locked) return;
+  const question = q.questions[q.index];
+  const opt = question.options.find(o=>o.id===optionId);
+  const isCorrect = opt.text === question.correctText;
+  q.selected = optionId; q.locked = true;
+  if(isCorrect) q.correctCount++;
+  else q.mistakes.push({ termId:question.termId, term:findTerm(question.termId).term, correctText:question.correctText });
+  render();
+}
+function nextQuestion(){
+  const q = state.quiz;
+  if(q.index+1 >= q.questions.length){
+    applyQuizToStats();
+    q.finished = true;
+  } else {
+    q.index++; q.selected=null; q.locked=false;
+  }
+  render();
+}
+function applyQuizToStats(){
+  const mistakeIds = new Set(state.quiz.mistakes.map(m=>m.termId));
+  state.quiz.questions.forEach(question=>{
+    const s = state.stats[question.termId] || {seen:0, wrong:0};
+    s.seen++; if(mistakeIds.has(question.termId)) s.wrong++;
+    state.stats[question.termId] = s;
+  });
+  saveStats();
+}
+function restartQuiz(){ state.quiz=null; render(); }
+
+/* ---------- Rendu : navigation principale ---------- */
+function renderViewNav(){
+  const el = document.getElementById('viewnav');
+  el.innerHTML = `
+    <button class="vnav-btn ${state.view==='revise'?'active':''}" data-action="set-view" data-view="revise">Réviser</button>
+    <button class="vnav-btn ${state.view==='edt'?'active':''}" data-action="set-view" data-view="edt">Emploi du temps</button>
+  `;
+}
+
+/* ---------- Rendu : section Réviser ---------- */
+function renderSideHTML(){
+  let html = `<div class="side-group"><p class="side-label">Matière</p><ul class="side-list">`;
+  MATIERES.forEach(m=>{
+    if(m.active){
+      const cls = 'side-btn' + (state.matiereId===m.id ? ' active' : '');
+      html += `<li><button class="${cls}" data-action="select-matiere" data-id="${m.id}">${m.label}</button></li>`;
+    } else {
+      html += `<li><span class="side-btn disabled">${m.label}<span class="soon">bientôt</span></span></li>`;
+    }
+  });
+  html += `</ul></div>`;
+
+  if(state.matiereId){
+    const m = findMatiere(state.matiereId);
+    html += `<div class="side-group"><p class="side-label">Chapitre</p>`;
+    if(m.chapitres.length===0){
+      html += `<p class="side-note">Contenu à venir.</p>`;
+    } else {
+      html += `<ul class="side-list sub">`;
+      m.chapitres.forEach(c=>{
+        if(c.active){
+          const cls = 'side-btn' + (state.chapitreId===c.id ? ' active' : '');
+          html += `<li><button class="${cls}" data-action="select-chapitre" data-id="${c.id}">${c.label}</button></li>`;
+        } else {
+          html += `<li><span class="side-btn disabled">${c.label}<span class="soon">bientôt</span></span></li>`;
+        }
+      });
+      html += `</ul>`;
+    }
+    html += `</div>`;
+  }
+  return html;
+}
+
+function renderMainHTML(){
+  if(!state.matiereId){
+    return `<div class="empty">
+      <h2>Choisis une matière</h2>
+      <p>Commence par Histoire-Géo → Définitions 1 dans le menu.</p>
+    </div>`;
+  }
+  const m = findMatiere(state.matiereId);
+  if(m.chapitres.length===0){
+    return `<div class="empty">
+      <h2>${m.label}</h2>
+      <p>Pas encore de fiches ni de quiz pour cette matière. Dis-moi quoi ajouter et je m'en occupe.</p>
+    </div>`;
+  }
+  if(!state.chapitreId){
+    return `<div class="empty">
+      <h2>Choisis un chapitre</h2>
+      <p>Sélectionne un chapitre de ${m.label} dans le menu.</p>
+    </div>`;
+  }
+
+  const c = m.chapitres.find(x=>x.id===state.chapitreId);
+  let html = `<p class="crumb">${m.label} <span>›</span> <span class="cur">${c.label}</span></p>
+  <div class="title-row"><h2>${c.label}</h2></div>
+  <div class="tabs">
+    <button class="tab-btn ${state.tab==='cours'?'active':''}" data-action="set-tab" data-tab="cours">Cours</button>
+    <button class="tab-btn ${state.tab==='quiz'?'active':''}" data-action="set-tab" data-tab="quiz">Quiz</button>
+  </div>
+  <div class="view">`;
+  html += state.tab==='cours' ? renderCours() : renderQuizTab();
+  html += `</div>`;
+  return html;
+}
+
+function renderTermBlock(t){
+  let html = `<div class="term-block"><p class="t">${t.term}</p><p class="d">${t.def}</p>`;
+  if(t.id==='culture'){
+    const subs = TERMS.filter(x=>x.parent==='culture');
+    html += `<div class="sub-list">`;
+    subs.forEach(s=>{
+      html += `<div class="sub-item"><p class="t">${s.term}</p><p class="d">${s.def}</p></div>`;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+function renderCours(){
+  let html = '';
+  GROUPS.forEach(g=>{
+    html += `<div class="paper-card"><h3>${g.title}</h3>`;
+    g.ids.forEach(id=>{ html += renderTermBlock(findTerm(id)); });
+    html += `</div>`;
+  });
+  return html;
+}
+
+function renderQuizTab(){
+  if(!state.quiz) return renderQuizIntro();
+  if(state.quiz.finished) return renderQuizResults();
+  return renderQuizQuestion();
+}
+function renderQuizIntro(){
+  const m = findMatiere(state.matiereId);
+  const c = m.chapitres.find(x=>x.id===state.chapitreId);
+  let html = `<div class="quiz-intro">
+    <h3>Quiz — ${c.label}</h3>
+    <p>10 questions tirées au hasard dans une banque de ${BANK.length} questions, dans un ordre différent à chaque fois. Ta progression est enregistrée automatiquement, même si tu reviens plus tard.</p>
+    <button class="btn" data-action="start-quiz">Commencer le quiz</button>
+    <div class="review-panel">`;
+  const list = reviewList();
+  if(list.length===0){
+    html += `<h4>À réviser en priorité</h4><p style="color:var(--ink-soft);font-size:13.5px;margin:0;">Fais un premier quiz pour voir ce qu'il faut retravailler.</p>`;
+  } else {
+    html += `<h4>À réviser en priorité</h4>`;
+    list.forEach(item=>{
+      html += `<div class="review-item"><span class="n">${item.term}</span><span class="c">raté ${item.wrong}/${item.seen}</span></div>`;
+    });
+  }
+  html += `<div style="margin-top:14px;"><button class="link-btn" data-action="reset-stats">Réinitialiser ma progression</button></div>`;
+  html += `</div></div>`;
+  return html;
+}
+function renderQuizQuestion(){
+  const q = state.quiz;
+  const question = q.questions[q.index];
+  let html = `<div class="qcard">
+    <p class="qmeta">Question ${q.index+1} / ${q.questions.length}</p>
+    <p class="qprompt">${question.prompt}</p>
+    <div class="options">`;
+  question.options.forEach(o=>{
+    let cls = 'opt';
+    if(q.locked){
+      cls += ' disabled';
+      if(o.text===question.correctText) cls += ' correct';
+      else if(o.id===q.selected) cls += ' wrong';
+      else cls += ' muted';
+    }
+    html += `<button class="${cls}" data-action="answer" data-option="${o.id}">${o.text}</button>`;
+  });
+  html += `</div>`;
+  if(q.locked){
+    const isLast = q.index+1 >= q.questions.length;
+    html += `<button class="btn" data-action="next-question">${isLast ? 'Voir le résultat' : 'Question suivante'}</button>`;
+  }
+  html += `</div>`;
+  return html;
+}
+function renderQuizResults(){
+  const q = state.quiz;
+  const total = q.questions.length;
+  const wrong = q.mistakes.length;
+  let html = `<div class="qcard" style="background-image:none;border-left:4px solid var(--green);">
+    <p class="result-num">${wrong} faute${wrong>1?'s':''}</p>
+    <p class="result-sub">sur ${total} questions (${q.correctCount}/${total} bonnes réponses)</p>`;
+  if(wrong>0){
+    html += `<ul class="mistake-list">`;
+    q.mistakes.forEach(mi=>{
+      html += `<li><p class="t">${mi.term}</p><p class="d">${mi.correctText}</p></li>`;
+    });
+    html += `</ul>`;
+  } else {
+    html += `<p style="color:var(--ink-soft);font-size:14px;">Sans faute, bien joué.</p>`;
+  }
+  html += `<div class="review-panel"><h4>À réviser en priorité</h4>`;
+  const list = reviewList();
+  if(list.length===0){
+    html += `<p style="color:var(--ink-soft);font-size:13.5px;margin:0;">Rien à signaler pour l'instant.</p>`;
+  } else {
+    list.forEach(item=>{
+      html += `<div class="review-item"><span class="n">${item.term}</span><span class="c">raté ${item.wrong}/${item.seen}</span></div>`;
+    });
+  }
+  html += `</div>
+  <div class="actions">
+    <button class="btn" data-action="restart-quiz">Refaire un quiz</button>
+    <button class="btn ghost" data-action="set-tab" data-tab="cours">Revoir le cours</button>
+  </div>
+  </div>`;
+  return html;
+}
+
+function renderRevise(){
+  return `<div class="layout">
+    <nav class="side">${renderSideHTML()}</nav>
+    <main>${renderMainHTML()}</main>
+  </div>`;
+}
+
+/* ---------- Rendu : Emploi du temps ---------- */
+function renderCourseCard(cours){
+  const m = findMatiere(cours.matiereId);
+  const color = MATIERE_COLOR[cours.matiereId] || '#8A8474';
+  let html = `<div class="edt-course" style="border-left-color:${color}">
+    <p class="cn">${m ? m.label : cours.matiereId}</p>
+    <p class="cp">${cours.prof}</p>`;
+  if(cours.salle) html += `<p class="cs">${cours.salle}</p>`;
+  html += `</div>`;
+  return html;
+}
+function renderSchedule(){
+  let html = `<p class="edt-hint">Semaine du 14 au 18 septembre.</p><div class="edt-grid">`;
+  SCHEDULE.forEach(day=>{
+    html += `<div class="edt-day">
+      <div class="edt-day-head">
+        <p class="dname">${day.day}</p>
+        <p class="ddate">${day.date}</p>
+      </div>
+      <div class="edt-courses">`;
+    day.cours.forEach(c=>{ html += renderCourseCard(c); });
+    html += `</div></div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+/* ---------- Rendu global ---------- */
+function render(){
+  renderViewNav();
+  const content = document.getElementById('content');
+  content.innerHTML = state.view==='revise' ? renderRevise() : renderSchedule();
+}
+
+/* ---------- Interactions ---------- */
+document.addEventListener('click', (e)=>{
+  const el = e.target.closest('[data-action]');
+  if(!el) return;
+  const action = el.dataset.action;
+
+  if(action==='set-view'){ state.view = el.dataset.view; }
+  else if(action==='select-matiere'){ state.matiereId = el.dataset.id; state.chapitreId=null; state.tab='cours'; state.quiz=null; }
+  else if(action==='select-chapitre'){ state.chapitreId = el.dataset.id; state.tab='cours'; state.quiz=null; }
+  else if(action==='set-tab'){ state.tab = el.dataset.tab; if(state.tab==='cours') state.quiz=null; }
+  else if(action==='start-quiz'){ startQuiz(); return; }
+  else if(action==='answer'){ answerQuestion(el.dataset.option); return; }
+  else if(action==='next-question'){ nextQuestion(); return; }
+  else if(action==='restart-quiz'){ restartQuiz(); return; }
+  else if(action==='reset-stats'){ resetStats(); return; }
+
+  render();
+});
+
+/* ---------- Démarrage ---------- */
+(async function init(){
+  await loadStats();
+  render();
+})();
+</script>
+</body>
+</html>
