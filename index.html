@@ -88,7 +88,7 @@
   .crumb .cur{color:var(--gold);}
   .title-row h2{color:var(--chalk);font-size:25px;margin:0 0 16px;font-weight:600;}
 
-  .tabs{display:flex;gap:22px;border-bottom:1px solid var(--chalk-faint);margin-bottom:22px;}
+  .tabs{display:flex;flex-wrap:wrap;gap:0 22px;border-bottom:1px solid var(--chalk-faint);margin-bottom:22px;}
   .tab-btn{background:none;border:none;color:var(--chalk-soft);font:inherit;font-size:15px;
     padding:8px 2px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
   .tab-btn:hover{color:var(--chalk);}
@@ -202,6 +202,16 @@
   .vocab-row:last-child{border-bottom:none;}
   .vocab-row .es{font-weight:700;}
   .vocab-row .fr{color:var(--ink-soft);}
+
+  .typed{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+  .typed input{flex:1;min-width:200px;font:inherit;font-size:15px;padding:11px 14px;border:1px solid var(--ink-soft);
+    border-radius:3px;background:var(--paper-2);color:var(--ink);}
+  .typed input:disabled{opacity:.85;}
+  .typed input.ok{background:var(--green-bg);border-color:var(--green);}
+  .typed input.ko{background:var(--red-bg);border-color:var(--red);}
+  .typed-fb{font-size:14px;margin:0 0 16px;line-height:1.5;}
+  .typed-fb.ok{color:var(--green);} .typed-fb.ko{color:var(--red);}
+  .typed-fb .note{display:block;color:var(--ink-soft);}
 
   :focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
 </style>
@@ -329,11 +339,11 @@ const VOCAB = [
   { id:'periodista', es:'el/la periodista', fr:'le/la journaliste' },
   { id:'periodismo', es:'el periodismo', fr:'le journalisme' },
   { id:'prensa', es:'la prensa', fr:'la presse' },
-  { id:'articulo', es:'el artículo', fr:'un article' },
+  { id:'articulo', es:'el artículo', fr:'un article', altFr:["l'article"] },
   { id:'portada', es:'la portada', fr:'la une' },
   { id:'entrevista', es:'la entrevista', fr:"l'interview" },
   { id:'reportaje', es:'el reportaje', fr:'le reportage' },
-  { id:'numero', es:'el número', fr:'le nombre' },
+  { id:'numero', es:'el número', fr:'le nombre', altFr:['le numéro'] },
   { id:'corrupcion', es:'la corrupción', fr:'la corruption' },
   { id:'preso', es:'preso = encarcelado', fr:'emprisonné' },
   { id:'censura', es:'la censura', fr:'la censure' },
@@ -433,12 +443,25 @@ const state = {
 };
 
 /* ---------- Stockage persistant ---------- */
-const STATS_KEYS = { def1:'histoire_def1_stats', vocab1:'espagnol_vocab1_stats' };
+const STATS_KEYS = {
+  def1:'histoire_def1_stats',
+  'vocab1-es2fr':'espagnol_vocab1_es2fr_stats',
+  'vocab1-fr2es':'espagnol_vocab1_fr2es_stats',
+  'vocab1-w-es2fr':'espagnol_vocab1_write_es2fr_stats',
+  'vocab1-w-fr2es':'espagnol_vocab1_write_fr2es_stats',
+};
+function vocabDir(){ return /es2fr$/.test(state.tab) ? 'es2fr' : /fr2es$/.test(state.tab) ? 'fr2es' : null; }
+function vocabWrite(){ return state.tab.startsWith('write-'); }
+function statsId(){
+  const c = curChapter();
+  if(c && c.type==='vocab') return c.id + (vocabWrite() ? '-w' : '') + '-' + (vocabDir() || 'es2fr');
+  return state.chapitreId;
+}
 function curChapter(){
   const m = findMatiere(state.matiereId);
   return m ? m.chapitres.find(c=>c.id===state.chapitreId) : null;
 }
-function curStats(){ if(!state.allStats[state.chapitreId]) state.allStats[state.chapitreId]={}; return state.allStats[state.chapitreId]; }
+function curStats(){ const id=statsId(); if(!state.allStats[id]) state.allStats[id]={}; return state.allStats[id]; }
 async function loadStats(){
   for(const [cid,key] of Object.entries(STATS_KEYS)){
     try{
@@ -448,13 +471,13 @@ async function loadStats(){
   }
 }
 async function saveStats(){
-  try{ await window.storage.set(STATS_KEYS[state.chapitreId], JSON.stringify(curStats()), false); }
+  try{ await window.storage.set(STATS_KEYS[statsId()], JSON.stringify(curStats()), false); }
   catch(e){ console.error('Sauvegarde impossible', e); }
 }
 async function resetStats(){
   if(!confirm('Effacer toute ta progression sur ce chapitre ?')) return;
-  try{ await window.storage.delete(STATS_KEYS[state.chapitreId], false); }catch(e){}
-  state.allStats[state.chapitreId] = {};
+  try{ await window.storage.delete(STATS_KEYS[statsId()], false); }catch(e){}
+  state.allStats[statsId()] = {};
   render();
 }
 
@@ -473,21 +496,50 @@ function reviewList(){
     .map(([id,s])=>({ term:statLabel(id), wrong:s.wrong, seen:s.seen }));
 }
 
-function buildVocabBank(){
+const ART_RE = /^(?:(?:el|la|los|las|un|una|le|les|une)\s+|l')/i;
+function normTxt(t){ return t.toLowerCase().replace(/[’`]/g,"'").replace(/[.!?¿¡]/g,'').replace(/\s+/g,' ').trim(); }
+function stripAcc(t){ return t.normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function esc(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function answerVariants(str, extras){
+  const out = new Set();
+  const parts = [str, ...str.split(/\s*=\s*/), ...(extras||[])];
+  parts.forEach(pt=>{
+    const m = pt.match(/^(el|le)\/(la)\s+(.+)$/i);
+    const forms = m ? [`${m[1]} ${m[3]}`, `${m[2]} ${m[3]}`, m[3]] : [pt];
+    forms.forEach(f=>{ out.add(normTxt(f)); out.add(normTxt(f.replace(ART_RE,''))); });
+  });
+  return [...out];
+}
+function checkTyped(val, question){
+  const inp = normTxt(val);
+  const exact = question.variants.includes(inp);
+  const loose = question.variants.some(v=>stripAcc(v)===stripAcc(inp));
+  return { ok:loose, exact };
+}
+
+function buildVocabBank(dir, typed){
   const bank=[];
   VOCAB.forEach(w=>{
     const others = VOCAB.filter(x=>x.id!==w.id);
-    const optEs = shuffle([w.es, ...pickRandom(others,3).map(x=>x.es)]).map((text,i)=>({id:'o'+i,text}));
-    bank.push({ qid:w.id+'-fr2es', termId:w.id, label:w.fr, prompt:`Comment dit-on « ${w.fr} » en espagnol ?`, options:optEs, correctText:w.es });
-    const optFr = shuffle([w.fr, ...pickRandom(others,3).map(x=>x.fr)]).map((text,i)=>({id:'o'+i,text}));
-    bank.push({ qid:w.id+'-es2fr', termId:w.id, label:w.es, prompt:`Que veut dire « ${w.es} » en français ?`, options:optFr, correctText:w.fr });
+    const from = dir==='fr2es' ? w.fr : w.es;
+    const to = dir==='fr2es' ? w.es : w.fr;
+    const q = { qid:w.id+'-'+dir, termId:w.id, label:from, correctText:to };
+    if(typed){
+      q.typed = true;
+      q.variants = answerVariants(to, dir==='es2fr' ? w.altFr : null);
+      q.prompt = dir==='fr2es' ? `Écris « ${from} » en espagnol.` : `Écris en français : « ${from} »`;
+    } else {
+      q.prompt = dir==='fr2es' ? `Comment dit-on « ${from} » en espagnol ?` : `Que veut dire « ${from} » en français ?`;
+      q.options = shuffle([to, ...pickRandom(others,3).map(x=>dir==='fr2es' ? x.es : x.fr)]).map((text,i)=>({id:'o'+i,text}));
+    }
+    bank.push(q);
   });
   return bank;
 }
 
 /* ---------- Quiz ---------- */
 function startQuiz(){
-  const bank = (curChapter() && curChapter().type==='vocab') ? buildVocabBank() : BANK;
+  const bank = (curChapter() && curChapter().type==='vocab') ? buildVocabBank(vocabDir(), vocabWrite()) : BANK;
   const shuffled = shuffle(bank);
   const chosen=[]; const used=new Set();
   for(const q of shuffled){
@@ -509,13 +561,26 @@ function answerQuestion(optionId){
   else q.mistakes.push({ termId:question.termId, term:question.label, correctText:question.correctText });
   render();
 }
+function answerTyped(){
+  const q = state.quiz;
+  if(!q || q.locked) return;
+  const inp = document.getElementById('typed-input');
+  const val = inp ? inp.value : '';
+  if(!val.trim()) return;
+  const question = q.questions[q.index];
+  const res = checkTyped(val, question);
+  q.typed = val.trim(); q.typedOk = res.ok; q.typedExact = res.exact; q.locked = true;
+  if(res.ok) q.correctCount++;
+  else q.mistakes.push({ termId:question.termId, term:question.label, correctText:question.correctText });
+  render();
+}
 function nextQuestion(){
   const q = state.quiz;
   if(q.index+1 >= q.questions.length){
     applyQuizToStats();
     q.finished = true;
   } else {
-    q.index++; q.selected=null; q.locked=false;
+    q.index++; q.selected=null; q.locked=false; q.typed=null;
   }
   render();
 }
@@ -601,7 +666,10 @@ function renderMainHTML(){
   <div class="title-row"><h2>${c.label}</h2></div>
   <div class="tabs">
     <button class="tab-btn ${state.tab==='cours'?'active':''}" data-action="set-tab" data-tab="cours">Cours</button>
-    <button class="tab-btn ${state.tab==='quiz'?'active':''}" data-action="set-tab" data-tab="quiz">Quiz</button>
+    ${c.type==='vocab'
+      ? [['quiz-es2fr','QCM espagnol → français'],['quiz-fr2es','QCM français → espagnol'],['write-es2fr','Écrit espagnol → français'],['write-fr2es','Écrit français → espagnol']]
+          .map(([id,lab])=>`<button class="tab-btn ${state.tab===id?'active':''}" data-action="set-tab" data-tab="${id}">${lab}</button>`).join('')
+      : `<button class="tab-btn ${state.tab==='quiz'?'active':''}" data-action="set-tab" data-tab="quiz">Quiz</button>`}
   </div>
   <div class="view">`;
   html += state.tab==='cours'
@@ -697,10 +765,10 @@ function renderQuizIntro(){
   const c = m.chapitres.find(x=>x.id===state.chapitreId);
   const isVocab = c.type==='vocab';
   const intro = isVocab
-    ? `10 questions tirées au hasard parmi ${VOCAB.length*2} (français → espagnol et espagnol → français), avec 4 propositions à chaque fois. Ta progression est enregistrée automatiquement, même si tu reviens plus tard.`
+    ? `10 mots tirés au hasard parmi ${VOCAB.length}. ${vocabDir()==='es2fr' ? 'Tu vois un mot espagnol' : 'Tu vois un mot français'} et ${vocabWrite() ? (vocabDir()==='es2fr' ? 'tu écris sa traduction française. ' : 'tu écris sa traduction espagnole. ') + "Les majuscules et les articles ne comptent pas ; une faute d'accent est signalée mais acceptée. " : (vocabDir()==='es2fr' ? 'tu trouves sa traduction française' : 'tu trouves sa traduction espagnole') + ', parmi 4 propositions. '}Ta progression est enregistrée automatiquement, même si tu reviens plus tard.`
     : `10 questions tirées au hasard dans une banque de ${BANK.length} questions, dans un ordre différent à chaque fois. Ta progression est enregistrée automatiquement, même si tu reviens plus tard.`;
   let html = `<div class="quiz-intro">
-    <h3>Quiz — ${c.label}</h3>
+    <h3>${isVocab ? (vocabWrite() ? 'Écrit' : 'QCM') + ' — ' + (vocabDir()==='es2fr' ? 'espagnol → français' : 'français → espagnol') : 'Quiz — ' + c.label}</h3>
     <p>${intro}</p>
     <button class="btn" data-action="start-quiz">Commencer le quiz</button>
     <div class="review-panel">`;
@@ -722,9 +790,23 @@ function renderQuizQuestion(){
   const question = q.questions[q.index];
   let html = `<div class="qcard">
     <p class="qmeta">Question ${q.index+1} / ${q.questions.length}</p>
-    <p class="qprompt">${question.prompt}</p>
-    <div class="options">`;
-  question.options.forEach(o=>{
+    <p class="qprompt">${question.prompt}</p>`;
+  if(question.typed){
+    const cls = q.locked ? (q.typedOk ? 'ok' : 'ko') : '';
+    html += `<div class="typed">
+      <input id="typed-input" type="text" class="${cls}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ta réponse…" value="${esc(q.typed||'')}" ${q.locked?'disabled':''}>
+      ${q.locked ? '' : '<button class="btn" data-action="submit-typed">Valider</button>'}
+    </div>`;
+    if(q.locked){
+      if(q.typedOk){
+        html += `<p class="typed-fb ok">Correct !${q.typedExact ? '' : `<span class="note">Attention à l'orthographe exacte : ${esc(question.correctText)}</span>`}</p>`;
+      } else {
+        html += `<p class="typed-fb ko">Faux. Réponse attendue : <strong>${esc(question.correctText)}</strong></p>`;
+      }
+    }
+  }
+  html += `<div class="options">`;
+  (question.options||[]).forEach(o=>{
     let cls = 'opt';
     if(q.locked){
       cls += ' disabled';
@@ -815,6 +897,8 @@ function render(){
   renderViewNav();
   const content = document.getElementById('content');
   content.innerHTML = state.view==='revise' ? renderRevise() : renderSchedule();
+  const ti = document.getElementById('typed-input');
+  if(ti && !ti.disabled) ti.focus();
 }
 
 /* ---------- Interactions ---------- */
@@ -826,14 +910,22 @@ document.addEventListener('click', (e)=>{
   if(action==='set-view'){ state.view = el.dataset.view; }
   else if(action==='select-matiere'){ state.matiereId = el.dataset.id; state.chapitreId=null; state.tab='cours'; state.quiz=null; }
   else if(action==='select-chapitre'){ state.chapitreId = el.dataset.id; state.tab='cours'; state.quiz=null; }
-  else if(action==='set-tab'){ state.tab = el.dataset.tab; if(state.tab==='cours') state.quiz=null; }
+  else if(action==='set-tab'){ state.tab = el.dataset.tab; state.quiz=null; }
   else if(action==='start-quiz'){ startQuiz(); return; }
   else if(action==='answer'){ answerQuestion(el.dataset.option); return; }
   else if(action==='next-question'){ nextQuestion(); return; }
+  else if(action==='submit-typed'){ answerTyped(); return; }
   else if(action==='restart-quiz'){ restartQuiz(); return; }
   else if(action==='reset-stats'){ resetStats(); return; }
 
   render();
+});
+
+document.addEventListener('keydown', (e)=>{
+  if(e.key!=='Enter') return;
+  if(e.target && e.target.id==='typed-input'){ e.preventDefault(); answerTyped(); return; }
+  const q = state.quiz;
+  if(q && q.locked && !q.finished && e.target===document.body){ e.preventDefault(); nextQuestion(); }
 });
 
 /* ---------- Démarrage ---------- */
